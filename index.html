@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Flashcards App</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    input, button, textarea {
+      margin: 5px 0;
+      padding: 8px;
+      width: 300px;
+    }
+    .flashcard {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Flashcards App 📚</h1>
+
+<!-- Create Flashcard -->
+<h2>Create Flashcard</h2>
+<textarea id="question" placeholder="Enter question..."></textarea><br>
+<textarea id="answer" placeholder="Enter answer..."></textarea><br>
+<button onclick="createFlashcard()">Create Flashcard</button>
+
+<!-- List Flashcards -->
+<h2>All Flashcards</h2>
+<button onclick="listFlashcards()">Refresh List</button>
+<div id="flashcards"></div>
+
+<script type="module">
+  import { persistent } from "./declarations/persistent"; // adjust if your canister name is different
+
+  async function createFlashcard() {
+    const question = document.getElementById("question").value;
+    const answer = document.getElementById("answer").value;
+    if (!question || !answer) {
+      alert("Please fill both fields!");
+      return;
+    }
+
+    try {
+      const result = await persistent.createFlashcard(question, answer);
+      if ("ok" in result) {
+        alert("Flashcard created! ID: " + result.ok);
+        document.getElementById("question").value = "";
+        document.getElementById("answer").value = "";
+        listFlashcards();
+      } else {
+        alert("Error: " + result.err);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Failed to create flashcard.");
+    }
+  }
+
+  async function listFlashcards() {
+    const container = document.getElementById("flashcards");
+    container.innerHTML = "Loading...";
+    try {
+      const result = await persistent.listFlashcards();
+      if ("ok" in result) {
+        const flashcards = result.ok;
+        if (flashcards.length === 0) {
+          container.innerHTML = "<p>No flashcards yet.</p>";
+          return;
+        }
+        container.innerHTML = flashcards.map(([id, flashcard]) => `
+          <div class="flashcard">
+            <strong>Q:</strong> ${flashcard.question}<br>
+            <strong>A:</strong> ${flashcard.answer}<br>
+            <strong>Confidence:</strong> ${flashcard.confidence}<br>
+            <button onclick="rateFlashcard(${id}, 5)">👍 Rate 5</button>
+            <button onclick="deleteFlashcard(${id})">🗑 Delete</button>
+          </div>
+        `).join("");
+      } else {
+        container.innerHTML = "<p>Error loading flashcards: " + result.err + "</p>";
+      }
+    } catch (error) {
+      console.error(error);
+      container.innerHTML = "<p>Failed to fetch flashcards.</p>";
+    }
+  }
+
+  async function deleteFlashcard(id) {
+    if (!confirm("Delete this flashcard?")) return;
+    try {
+      const result = await persistent.deleteFlashcard(id);
+      if ("ok" in result) {
+        alert(result.ok);
+        listFlashcards();
+      } else {
+        alert("Error: " + result.err);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Failed to delete flashcard.");
+    }
+  }
+
+  async function rateFlashcard(id, confidence) {
+    try {
+      const result = await persistent.rateFlashcard(id, confidence);
+      if ("ok" in result) {
+        alert(result.ok);
+        listFlashcards();
+      } else {
+        alert("Error: " + result.err);
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Failed to rate flashcard.");
+    }
+  }
+
+  // Initial load
+  listFlashcards();
+</script>
+
+</body>
+</html>
